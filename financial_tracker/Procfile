@@ -1,1 +1,1 @@
-web: gunicorn financial_tracker.wsgi --log-file -
+web: gunicorn financial_tracker.wsgi --bind 0.0.0.0:$PORT --log-file -
