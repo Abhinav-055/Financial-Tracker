@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Financial Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <header>
+        <nav>
+            <div>
+                <a href="{% url 'dashboard' %}">Financial Tracker</a>
+            </div>
+            <div>
+                {% if user.is_authenticated %}
+                    <span>Welcome, {{ user.username }}</span>
+                    <button onclick="location.href='{% url 'logout' %}'">Logout</button>
+                {% else %}
+                    <button onclick="location.href='{% url 'login' %}'">Login</button>
+                    <button onclick="location.href='{% url 'register' %}'">Register</button>
+                {% endif %}
+            </div>
+        </nav>
+    </header>
+    
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+    
+    <script>
+        function showMessage(message, isError = false) {
+            const msgDiv = document.createElement('div');
+            msgDiv.textContent = message;
+            msgDiv.style.color = isError ? 'red' : 'green';
+            document.querySelector('.container').prepend(msgDiv);
+            setTimeout(() => msgDiv.remove(), 3000);
+        }
+        
+        function handleApiError(error) {
+            console.error('API Error:', error);
+            showMessage('An error occurred. Please try again.', true);
+        }
+    </script>
+</body>
+</html>

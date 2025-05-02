@@ -1,0 +1,701 @@
+{% extends 'finances/base.html' %}
+{% block content %}
+    <h1>Dashboard</h1>
+    
+    <div>
+        <h2>Quick Stats for this month</h2>
+        <div id="summaryStats"></div>
+        <canvas id="incomeExpenseChart"></canvas>
+    </div>
+    
+    <div>
+        <h2>Recent Transactions</h2>
+        <button onclick="showAddTransactionForm()">Add Transaction</button>
+        <div id="addTransactionForm" style="display:none;">
+            <h3>Add New Transaction</h3>
+            <form id="transactionForm">
+                <div>
+                    <label>Type:</label>
+                    <select name="transaction_type" required>
+                        <option value="income">Income</option>
+                        <option value="expense">Expense</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Amount:</label>
+                    <input type="number" name="amount" step="0.01" min="0.01" required>
+                </div>
+                <div>
+                    <label>Date:</label>
+                    <input type="date" name="date" required>
+                </div>
+                <div>
+                    <label>Category:</label>
+                    <select name="category" id="categorySelect"></select>
+                </div>
+                <div>
+                    <label>Description:</label>
+                    <textarea name="description"></textarea>
+                </div>
+                <div>
+                    <label>Receipt/Attachment:</label>
+                    <input type="file" id="receiptUpload" accept="image/*">
+                    <input type="hidden" name="receipt_url" id="receiptUrl">
+                </div>
+                <button type="submit">Save</button>
+                <button type="button" onclick="hideAddTransactionForm()">Cancel</button>
+            </form>
+        </div>
+        <div id="editTransactionForm" style="display:none;">
+            <h3>Edit Transaction</h3>
+            <form id="editForm">
+                <input type="hidden" name="id" id="editTransactionId">
+                <div>
+                    <label>Type:</label>
+                    <select name="transaction_type" id="editTransactionType" required>
+                        <option value="income">Income</option>
+                        <option value="expense">Expense</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Amount:</label>
+                    <input type="number" name="amount" id="editAmount" step="0.01" min="0.01" required>
+                </div>
+                <div>
+                    <label>Date:</label>
+                    <input type="date" name="date" id="editDate" required>
+                </div>
+                <div>
+                    <label>Category:</label>
+                    <select name="category" id="editCategorySelect"></select>
+                </div>
+                <div>
+                    <label>Description:</label>
+                    <textarea name="description" id="editDescription"></textarea>
+                </div>
+                <button type="submit">Save Changes</button>
+                <button type="button" onclick="hideEditForm()">Cancel</button>
+            </form>
+        </div>
+        <div id="transactionsList"></div>
+    </div>
+    
+    <div>
+        <h2>Budgets</h2>
+        <button onclick="showAddBudgetForm()">Add Budget</button>
+        <div id="addBudgetForm" style="display:none;">
+            <h3>Add New Budget</h3>
+            <form id="budgetForm">
+                <div>
+                    <label>Category:</label>
+                    <select name="category" id="budgetCategorySelect" required></select>
+                </div>
+                <div>
+                    <label>Amount:</label>
+                    <input type="number" name="amount" step="0.01" min="0.01" required>
+                </div>
+                <div>
+                    <label>Start Date:</label>
+                    <input type="date" name="start_date" required>
+                </div>
+                <div>
+                    <label>End Date:</label>
+                    <input type="date" name="end_date" required>
+                </div>
+                <button type="submit">Save</button>
+                <button type="button" onclick="hideAddBudgetForm()">Cancel</button>
+            </form>
+        </div>
+        <div id="budgetsList"></div>
+    </div>
+    
+    <div>
+        <h2>Reports</h2>
+        <button onclick="generateReport()">Generate Monthly Report</button>
+        <div id="reportResults"></div>
+    </div>
+    
+    <script>
+        let incomeExpenseChart;
+        // Add this helper function at the top of your script
+function getCSRFToken() {
+    const cookieValue = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('csrftoken='))
+        ?.split('=')[1];
+    return cookieValue;
+}
+        // Load data when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSummary();
+            loadTransactions();
+            loadBudgets();
+            loadCategories();
+        });
+        
+        // Summary and Chart
+        function loadSummary() {
+            fetch('/api/summary/')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('summaryStats').innerHTML = `
+                        <p>Income: $${data.income.toFixed(2)}</p>
+                        <p>Expenses: $${data.expenses.toFixed(2)}</p>
+                        <p>Savings: $${data.savings.toFixed(2)}</p>
+                    `;
+                    
+                    // Update chart
+                    const ctx = document.getElementById('incomeExpenseChart').getContext('2d');
+                    if (incomeExpenseChart) incomeExpenseChart.destroy();
+                    
+                    incomeExpenseChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: ['Income', 'Expenses', 'Savings'],
+                            datasets: [{
+                                label: 'Current Month',
+                                data: [data.income, data.expenses, data.savings],
+                                backgroundColor: [
+                                    'rgba(54, 162, 235, 0.5)',
+                                    'rgba(255, 99, 132, 0.5)',
+                                    'rgba(75, 192, 192, 0.5)'
+                                ],
+                                borderColor: [
+                                    'rgba(54, 162, 235, 1)',
+                                    'rgba(255, 99, 132, 1)',
+                                    'rgba(75, 192, 192, 1)'
+                                ],
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    });
+                })
+                .catch(handleApiError);
+        }
+        
+        // Transactions
+        function loadTransactions() {
+            fetch('/api/transactions/')
+                .then(response => response.json())
+                .then(transactions => {
+                    let html = '<table border="1"><tr><th>Date</th><th>Type</th><th>Category</th><th>Amount</th><th>Description</th><th>Actions</th></tr>';
+                    
+                    transactions.forEach(transaction => {
+                        html += `
+                            <tr>
+                                <td>${transaction.date}</td>
+                                <td>${transaction.transaction_type}</td>
+                                <td>${transaction.category_name || '-'}</td>
+                                <td>$${transaction.amount}</td>
+                                <td>${transaction.description || '-'}</td>
+                                <td>
+  ${transaction.receipt_url 
+    ? `<a href="${transaction.receipt_url}" target="_blank" title="View Receipt">
+         <i class="fas fa-file-invoice"></i> View
+       </a>` 
+    : '<i class="fas fa-ban text-muted"></i> No Receipt'}
+</td>
+                                <td>
+                                    <button onclick="editTransaction(${transaction.id})">Edit</button>
+                                    <button onclick="deleteTransaction(${transaction.id})">Delete</button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += '</table>';
+                    document.getElementById('transactionsList').innerHTML = html;
+                })
+                .catch(handleApiError);
+        }
+        
+        function showAddTransactionForm() {
+            document.getElementById('addTransactionForm').style.display = 'block';
+            document.getElementById('transactionForm').reset();
+            document.getElementById('transactionForm').dataset.id = '';
+        }
+        
+        function hideAddTransactionForm() {
+            document.getElementById('addTransactionForm').style.display = 'none';
+        }
+        
+        function editTransaction(id) {
+            // Show loading state
+            showEditForm();
+            
+            // Fetch transaction with CSRF protection
+            fetch(`/api/transactions/${id}/`, {
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': getCSRFToken(),  // Include CSRF token
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include'  // Required for session authentication
+            })
+            .then(response => {
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        throw new Error('Transaction not found');
+                    } else if (response.status === 403) {
+                        throw new Error('You are not authorized to view this transaction');
+                    } else {
+                        throw new Error('Failed to load transaction');
+                    }
+                }
+                return response.json();
+            })
+            .then(transaction => {
+                // Populate edit form
+                document.getElementById('editTransactionId').value = transaction.id;
+                document.getElementById('editTransactionType').value = transaction.transaction_type;
+                document.getElementById('editAmount').value = transaction.amount;
+                document.getElementById('editDate').value = transaction.date;
+                document.getElementById('editDescription').value = transaction.description || '';
+                
+                // Load and filter categories (with CSRF protection)
+                return fetch('/api/categories/', {
+                    method: 'GET',
+                    headers: {
+                        'X-CSRFToken': getCSRFToken(),
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                })
+                .then(response => response.json())
+                .then(categories => {
+                    window.allCategories = categories;  // Store for filtering
+                    const categorySelect = document.getElementById('editCategorySelect');
+                    
+                    // Clear and populate category dropdown
+                    categorySelect.innerHTML = '';
+                    categorySelect.add(new Option('-- Select Category --', ''));
+                    
+                    // Filter by transaction type
+                    const filteredCategories = categories.filter(
+                        c => c.category_type === transaction.transaction_type
+                    );
+                    
+                    filteredCategories.forEach(category => {
+                        categorySelect.add(new Option(category.name, category.id));
+                    });
+                    
+                    // Set selected category
+                    categorySelect.value = transaction.category || '';
+                });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessage(error.message, true);
+                hideEditForm();
+            });
+        }
+        
+        function deleteTransaction(id) {
+            if (confirm('Are you sure you want to delete this transaction?')) {
+                fetch(`/api/transactions/${id}/delete/`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': getCSRFToken(),
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'  // Required for session/cookie auth
+                })
+                .then(response => {
+                    if (response.status === 204) {
+                        showMessage('Transaction deleted successfully');
+                        loadTransactions();
+                        loadBudgets();
+                        loadSummary();  // Refresh all relevant data
+                    } else if (response.status === 403) {
+                        throw new Error('You are not authorized to delete this transaction');
+                    } else {
+                        throw new Error('Failed to delete transaction');
+                    }
+                })
+                .catch(error => {
+                    console.error('Delete error:', error);
+                    showMessage(error.message, true);
+                });
+            }
+        }
+        function showEditForm() {
+            document.getElementById('editTransactionForm').style.display = 'block';
+        }
+        
+        function hideEditForm() {
+            document.getElementById('editTransactionForm').style.display = 'none';
+        }
+        
+        // Edit form submission
+        document.getElementById('editForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const form = this;
+            const transactionId = form.id.value;
+            
+            const formData = {
+                amount: parseFloat(form.amount.value),
+                date: form.date.value,
+                description: form.description.value,
+                category: form.category.value || null,
+                transaction_type: form.transaction_type.value
+            };
+            
+            fetch(`/api/transactions/${transactionId}/update/`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Update failed');
+                return response.json();
+            })
+            .then(data => {
+                showMessage('Transaction updated successfully');
+                hideEditForm();
+                loadTransactions();
+                loadBudgets();
+                loadSummary();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessage('Failed to update transaction. Please try again.', true);
+            });
+        });
+        
+        // Update event listener for type change
+        document.getElementById('editTransactionType').addEventListener('change', filterCategoriesByType);
+        document.getElementById('transactionForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const form = this;
+            const formData = new FormData(form);
+            const fileInput = document.getElementById('receiptUpload');
+            const file = fileInput.files[0];
+            const transactionId = form.dataset.id;
+            
+            try {
+                let receiptUrl = '';
+                
+                // 1. First upload file if exists
+                if (file) {
+                    showMessage('Uploading receipt...');
+                    
+                    const uploadResponse = await fetch('/api/upload-receipt/', {
+                        method: 'POST',
+                        body: (() => {
+                            const fd = new FormData();
+                            fd.append('file', file);
+                            return fd;
+                        })(),
+                        headers: {
+                            'X-CSRFToken': getCSRFToken()
+                        }
+                    });
+                    
+                    if (!uploadResponse.ok) {
+                        throw new Error('Receipt upload failed');
+                    }
+                    
+                    const uploadData = await uploadResponse.json();
+                    receiptUrl = uploadData.url;
+                    document.getElementById('receiptUrl').value = receiptUrl;
+                }
+                
+                // 2. Then submit transaction with receipt URL
+                const transactionData = {
+                    amount: formData.get('amount'),
+                    date: formData.get('date'),
+                    category: formData.get('category'),
+                    description: formData.get('description'),
+                    transaction_type: formData.get('transaction_type')
+                };
+                
+                if (receiptUrl) {
+                    transactionData.receipt_url = receiptUrl;
+                }
+                
+                const url = transactionId ? `/api/transactions/${transactionId}/` : '/api/transactions/add/';
+                const method = transactionId ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken()
+                    },
+                    body: JSON.stringify(transactionData)
+                });
+                
+                if (!response.ok) throw new Error('Transaction save failed');
+                
+                showMessage('Transaction saved successfully');
+                hideAddTransactionForm();
+                loadTransactions();
+                loadBudgets();
+                loadSummary();
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage(`Error: ${error.message}`, true);
+            }
+        });
+        
+        // Update your budget form submission
+        
+        
+        // Budgets
+        function loadBudgets() {
+            fetch('/api/budgets/')
+                .then(response => response.json())
+                .then(budgets => {
+                    let html = '<table border="1"><tr><th>Category</th><th>Budget</th><th>Spent</th><th>Remaining</th><th>Progress</th><th>Period</th></tr>';
+                    
+                    budgets.forEach(budget => {
+                        const progress = Math.min(100, budget.progress);
+                        html += `
+                            <tr>
+                                <td>${budget.category_name}</td>
+                                <td>$${budget.amount}</td>
+                                <td>$${budget.spent}</td>
+                                <td>$${budget.remaining}</td>
+                                <td>
+                                    <div style="width:100%;background:#ddd;">
+                                        <div style="width:${progress}%;background:${progress > 90 ? 'red' : progress > 70 ? 'orange' : 'green'};height:20px;"></div>
+                                    </div>
+                                    ${progress.toFixed(1)}%
+                                </td>
+                                <td>${budget.start_date} to ${budget.end_date}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += '</table>';
+                    document.getElementById('budgetsList').innerHTML = html;
+                })
+                .catch(handleApiError);
+        }
+        
+        function showAddBudgetForm() {
+            document.getElementById('addBudgetForm').style.display = 'block';
+            document.getElementById('budgetForm').reset();
+        }
+        
+        function hideAddBudgetForm() {
+            document.getElementById('addBudgetForm').style.display = 'none';
+        }
+        
+        document.getElementById('budgetForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            
+            fetch('/api/budgets/add/', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()  // Add CSRF token
+                },
+                body: JSON.stringify(Object.fromEntries(formData))
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
+            .then(data => {
+                showMessage('Budget added successfully');
+                hideAddBudgetForm();
+                loadBudgets();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessage('Failed to save budget. Please try again.', true);
+            });
+        });
+        
+        // Categories
+        // Categories - Modified with better error handling
+        function loadCategories() {
+            fetch('/api/categories/')
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.json();
+                })
+                .then(categories => {
+                    console.log('Received categories:', categories);
+                    
+                    const transactionSelect = document.getElementById('categorySelect');
+                    const budgetSelect = document.getElementById('budgetCategorySelect');
+                    
+                    // Clear existing options
+                    transactionSelect.innerHTML = '';
+                    budgetSelect.innerHTML = '';
+                    
+                    // Add default empty option
+                    transactionSelect.add(new Option('-- Select Category --', ''));
+                    budgetSelect.add(new Option('-- Select Category --', ''));
+                    
+                    // Store categories for later filtering
+                    window.allCategories = categories;
+                    
+                    // Initial filter based on default transaction type
+                    filterCategoriesByType();
+                    
+                    // Budget form only needs expense categories
+                    const expenseCategories = categories.filter(c => c.category_type === 'expense');
+                    if (expenseCategories.length > 0) {
+                        expenseCategories.forEach(category => {
+                            budgetSelect.add(new Option(category.name, category.id));
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading categories:', error);
+                    showMessage('Failed to load categories. Please try again.', true);
+                });
+        }
+        
+        // Filter categories based on selected transaction type
+        function filterCategoriesByType() {
+            const transactionType = document.querySelector('select[name="transaction_type"]').value;
+            const categorySelect = document.getElementById('categorySelect');
+            
+            // Clear existing options (keep first empty option)
+            while (categorySelect.options.length > 1) {
+                categorySelect.remove(1);
+            }
+            
+            // Filter categories by selected type
+            const filteredCategories = window.allCategories.filter(
+                c => c.category_type === transactionType
+            );
+            
+            // Add filtered categories
+            if (filteredCategories.length > 0) {
+                filteredCategories.forEach(category => {
+                    categorySelect.add(new Option(category.name, category.id));
+                });
+            }
+        }
+        
+        // Update category options when transaction type changes
+        document.querySelector('select[name="transaction_type"]').addEventListener('change', function() {
+            filterCategoriesByType();
+        });
+        
+        // Reports
+        function generateReport() {
+            fetch('/api/report/')
+                .then(response => response.json())
+                .then(data => {
+                    let html = `<h3>Report from ${data.start_date} to ${data.end_date}</h3>`;
+                    
+                    // Income by category
+                    html += '<h4>Income by Category</h4><ul>';
+                    data.income_by_category.forEach(item => {
+                        html += `<li>${item.category__name || 'Uncategorized'}: $${item.total.toFixed(2)}</li>`;
+                    });
+                    html += '</ul>';
+                    
+                    // Expenses by category
+                    html += '<h4>Expenses by Category</h4><ul>';
+                    data.expenses_by_category.forEach(item => {
+                        html += `<li>${item.category__name || 'Uncategorized'}: $${item.total.toFixed(2)}</li>`;
+                    });
+                    html += '</ul>';
+                    
+                    // Daily totals chart
+                    html += '<h4>Daily Totals</h4><canvas id="dailyTotalsChart"></canvas>';
+                    
+                    document.getElementById('reportResults').innerHTML = html;
+                    
+                    // Prepare data for chart
+                    const dates = [];
+                    const incomeData = [];
+                    const expenseData = [];
+                    
+                    // Initialize all dates in range
+                    const currentDate = new Date(data.start_date);
+                    const endDate = new Date(data.end_date);
+                    
+                    while (currentDate <= endDate) {
+                        const dateStr = currentDate.toISOString().split('T')[0];
+                        dates.push(dateStr);
+                        incomeData.push(0);
+                        expenseData.push(0);
+                        currentDate.setDate(currentDate.getDate() + 1);
+                    }
+                    
+                    // Fill with actual data
+                    data.daily_totals.forEach(item => {
+                        const dateStr = item.date;
+                        const index = dates.indexOf(dateStr);
+                        if (index !== -1) {
+                            if (item.transaction_type === 'income') {
+                                incomeData[index] = parseFloat(item.total);
+                            } else {
+                                expenseData[index] = parseFloat(item.total);
+                            }
+                        }
+                    });
+                    
+                    // Create chart
+                    const ctx = document.getElementById('dailyTotalsChart').getContext('2d');
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: dates,
+                            datasets: [
+                                {
+                                    label: 'Income',
+                                    data: incomeData,
+                                    borderColor: 'rgba(54, 162, 235, 1)',
+                                    backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                                    fill: true
+                                },
+                                {
+                                    label: 'Expenses',
+                                    data: expenseData,
+                                    borderColor: 'rgba(255, 99, 132, 1)',
+                                    backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                                    fill: true
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    });
+                })
+                .catch(handleApiError);
+        }
+        
+        // Update category options when transaction type changes
+        document.querySelector('select[name="transaction_type"]').addEventListener('change', function() {
+            const type = this.value;
+            const categorySelect = document.getElementById('categorySelect');
+            const options = categorySelect.querySelectorAll('optgroup, option');
+            
+            options.forEach(opt => {
+                if (opt.tagName === 'OPTGROUP') {
+                    opt.style.display = opt.label.toLowerCase() === type ? '' : 'none';
+                }
+            });
+            
+            categorySelect.value = '';
+        });
+    </script>
+{% endblock %}
