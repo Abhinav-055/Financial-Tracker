@@ -294,7 +294,7 @@ def upload_file(request):
 
     try:
         API_KEY = settings.API_KEY  # Replace with your actual key
-        url = settings.url
+        URL= settings.URL
         
         # Read file content
         file_content = file.read()
@@ -305,7 +305,7 @@ def upload_file(request):
         filename = generate_random_filename()
         # Make the request
         response = requests.post(
-            url,
+            URL,
             params={"key": API_KEY, "expiration": 600},  # 10 minute expiration
             files={"image": (filename, file_content)}
         )

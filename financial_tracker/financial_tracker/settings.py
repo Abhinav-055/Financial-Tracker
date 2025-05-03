@@ -119,7 +119,7 @@ DATABASES = {
     'default': env.db('DATABASE_URL')
 }
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
-url=env('url')
+URL=env('URL')
 API_KEY=env('API_KEY')
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
