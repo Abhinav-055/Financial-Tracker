@@ -293,7 +293,7 @@ def upload_file(request):
         return JsonResponse({"error": "Only JPEG, PNG, and PDF files allowed"}, status=400)
 
     try:
-        api_key = settings.api_key  # Replace with your actual key
+        API_KEY = settings.API_KEY  # Replace with your actual key
         url = settings.url
         
         # Read file content
@@ -306,7 +306,7 @@ def upload_file(request):
         # Make the request
         response = requests.post(
             url,
-            params={"key": api_key, "expiration": 600},  # 10 minute expiration
+            params={"key": API_KEY, "expiration": 600},  # 10 minute expiration
             files={"image": (filename, file_content)}
         )
         
