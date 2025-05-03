@@ -302,7 +302,7 @@ def generate_report(request):
             """
 
             response = client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": "You are a financial analyst."},
                     {"role": "user", "content": prompt}
