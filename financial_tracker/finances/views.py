@@ -16,6 +16,7 @@ from django.db.models import Sum
 import string
 from django.conf import settings
 import requests
+import openai
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
@@ -239,7 +240,6 @@ def generate_report(request):
     end_date = date.today()
     start_date = end_date - timedelta(days=30)
     
-    # Get income and expenses by category
     income_by_category = Transaction.objects.filter(
         user=request.user,
         transaction_type='income',
@@ -261,19 +261,55 @@ def generate_report(request):
         date__lte=end_date
     ).values('date', 'transaction_type').annotate(total=Sum('amount'))
     
-    return Response({
+    report_data = {
         'income_by_category': list(income_by_category),
         'expenses_by_category': list(expenses_by_category),
         'daily_totals': list(daily_totals),
-        'start_date': start_date,
-        'end_date': end_date
-    })
+        'start_date': str(start_date),
+        'end_date': str(end_date),
+        'ai_report': None
+    }
+    
+    prompt = f"""
+    Analyze this financial data and generate a concise 100-word report:
+    - Period: {report_data['start_date']} to {report_data['end_date']}
+    - Income by category: {report_data['income_by_category']}
+    - Expenses by category: {report_data['expenses_by_category']}
+    - Daily totals: {report_data['daily_totals']}
+    
+    The report should:
+    1. Highlight key income sources
+    2. Identify major expense categories
+    3. Note any spending patterns
+    4. Provide overall financial health assessment
+    5. Be exactly 100 words
+    """
+    openai.api_key = settings.OPENAI_API_KEY
+    # Call OpenAI API
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a financial analyst."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=150
+        )
+        
+        report_data['ai_report'] = response.choices[0].message.content.strip()
+        return Response(report_data)
+        
+    except Exception as e:
+        return Response({
+            'error': str(e),
+            'original_data': report_data
+        }, status=500)
 def upload_file(request):
     """Handle file uploads to ImgBB with print-based debugging"""
     
     print("\n=== Starting file upload to ImgBB ===")
     
-    # 1. Validate request contains a file
     if 'file' not in request.FILES:
         print("ERROR: No file found in request")
         return JsonResponse({"error": "No file provided"}, status=400)
@@ -281,7 +317,6 @@ def upload_file(request):
     file = request.FILES['file']
     print(f"File received: {file.name} ({file.size} bytes, {file.content_type})")
 
-    # 2. Validate file size (5MB limit)
     if file.size > 5 * 1024 * 1024:
         print(f"REJECTED: File too large ({file.size} bytes)")
         return JsonResponse({"error": "File too large (max 5MB)"}, status=400)
@@ -293,7 +328,7 @@ def upload_file(request):
         return JsonResponse({"error": "Only JPEG, PNG, and PDF files allowed"}, status=400)
 
     try:
-        API_KEY = settings.API_KEY  # Replace with your actual key
+        API_KEY = settings.API_KEY 
         URL= settings.URL
         
         # Read file content

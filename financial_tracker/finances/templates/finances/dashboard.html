@@ -611,7 +611,12 @@ function getCSRFToken() {
                         html += `<li>${item.category__name || 'Uncategorized'}: $${item.total.toFixed(2)}</li>`;
                     });
                     html += '</ul>';
-                    
+                    if (data.ai_report) {
+                        html += `<div class="ai-report">
+                                  <h4>AI Analysis</h4>
+                                  <p>${data.ai_report}</p>
+                                </div>`;
+                    } 
                     // Daily totals chart
                     html += '<h4>Daily Totals</h4><canvas id="dailyTotalsChart"></canvas>';
                     
