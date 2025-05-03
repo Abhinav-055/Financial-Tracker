@@ -16,7 +16,7 @@ from django.db.models import Sum
 import string
 from django.conf import settings
 import requests
-import openai
+from openai import OpenAI
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
@@ -284,21 +284,34 @@ def generate_report(request):
     4. Provide overall financial health assessment
     5. Be exactly 100 words
     """
-    openai.api_key = settings.OPENAI_API_KEY
+    client = OpenAI(api_key=settings.OPENAI_API_KEY)
     # Call OpenAI API
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are a financial analyst."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7,
-            max_tokens=150
-        )
-        
-        report_data['ai_report'] = response.choices[0].message.content.strip()
-        return Response(report_data)
+            prompt = f"""
+            Analyze this financial data and generate a concise 100-word report:
+            - Period: {report_data['start_date']} to {report_data['end_date']}
+            - Income: {report_data['income_by_category']}
+            - Expenses: {report_data['expenses_by_category']}
+            
+            The report should:
+            1. Highlight key income sources
+            2. Identify major expense categories
+            3. Note spending patterns
+            4. Provide financial health assessment
+            5. Be exactly 100 words
+            """
+
+            response = client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are a financial analyst."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=150
+            )
+            report_data['ai_report'] = response.choices[0].message.content.strip()
+            return Response(report_data)
         
     except Exception as e:
         return Response({
