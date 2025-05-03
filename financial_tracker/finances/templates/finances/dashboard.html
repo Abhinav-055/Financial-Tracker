@@ -42,7 +42,7 @@
                     <input type="file" id="receiptUpload" accept="image/*">
                     <input type="hidden" name="receipt_url" id="receiptUrl">
                 </div>
-                <button type="submit">Save</button>
+                <button type="submit" >Save</button>
                 <button type="button" onclick="hideAddTransactionForm()">Cancel</button>
             </form>
         </div>
@@ -111,13 +111,12 @@
     
     <div>
         <h2>Reports</h2>
-        <button onclick="generateReport()">Generate Monthly Report</button>
+        <button id="reportButton" onclick="generateReport()" class="report-button">Generate Monthly Report</button>
         <div id="reportResults"></div>
     </div>
     
     <script>
         let incomeExpenseChart;
-        // Add this helper function at the top of your script
 function getCSRFToken() {
     const cookieValue = document.cookie
         .split('; ')
@@ -125,7 +124,6 @@ function getCSRFToken() {
         ?.split('=')[1];
     return cookieValue;
 }
-        // Load data when page loads
         document.addEventListener('DOMContentLoaded', function() {
             loadSummary();
             loadTransactions();
@@ -133,7 +131,6 @@ function getCSRFToken() {
             loadCategories();
         });
         
-        // Summary and Chart
         function loadSummary() {
             fetch('/api/summary/')
                 .then(response => response.json())
@@ -144,7 +141,6 @@ function getCSRFToken() {
                         <p>Savings: $${data.savings.toFixed(2)}</p>
                     `;
                     
-                    // Update chart
                     const ctx = document.getElementById('incomeExpenseChart').getContext('2d');
                     if (incomeExpenseChart) incomeExpenseChart.destroy();
                     
@@ -179,8 +175,7 @@ function getCSRFToken() {
                 })
                 .catch(handleApiError);
         }
-        
-        // Transactions
+    
         function loadTransactions() {
             fetch('/api/transactions/')
                 .then(response => response.json())
@@ -227,17 +222,15 @@ function getCSRFToken() {
         }
         
         function editTransaction(id) {
-            // Show loading state
             showEditForm();
             
-            // Fetch transaction with CSRF protection
             fetch(`/api/transactions/${id}/`, {
                 method: 'GET',
                 headers: {
-                    'X-CSRFToken': getCSRFToken(),  // Include CSRF token
+                    'X-CSRFToken': getCSRFToken(),  
                     'Content-Type': 'application/json'
                 },
-                credentials: 'include'  // Required for session authentication
+                credentials: 'include'  
             })
             .then(response => {
                 if (!response.ok) {
@@ -252,14 +245,12 @@ function getCSRFToken() {
                 return response.json();
             })
             .then(transaction => {
-                // Populate edit form
                 document.getElementById('editTransactionId').value = transaction.id;
                 document.getElementById('editTransactionType').value = transaction.transaction_type;
                 document.getElementById('editAmount').value = transaction.amount;
                 document.getElementById('editDate').value = transaction.date;
                 document.getElementById('editDescription').value = transaction.description || '';
                 
-                // Load and filter categories (with CSRF protection)
                 return fetch('/api/categories/', {
                     method: 'GET',
                     headers: {
@@ -270,14 +261,12 @@ function getCSRFToken() {
                 })
                 .then(response => response.json())
                 .then(categories => {
-                    window.allCategories = categories;  // Store for filtering
+                    window.allCategories = categories;  
                     const categorySelect = document.getElementById('editCategorySelect');
                     
-                    // Clear and populate category dropdown
                     categorySelect.innerHTML = '';
                     categorySelect.add(new Option('-- Select Category --', ''));
                     
-                    // Filter by transaction type
                     const filteredCategories = categories.filter(
                         c => c.category_type === transaction.transaction_type
                     );
@@ -286,7 +275,6 @@ function getCSRFToken() {
                         categorySelect.add(new Option(category.name, category.id));
                     });
                     
-                    // Set selected category
                     categorySelect.value = transaction.category || '';
                 });
             })
@@ -305,14 +293,14 @@ function getCSRFToken() {
                         'X-CSRFToken': getCSRFToken(),
                         'Content-Type': 'application/json'
                     },
-                    credentials: 'include'  // Required for session/cookie auth
+                    credentials: 'include'  
                 })
                 .then(response => {
                     if (response.status === 204) {
                         showMessage('Transaction deleted successfully');
                         loadTransactions();
                         loadBudgets();
-                        loadSummary();  // Refresh all relevant data
+                        loadSummary();  
                     } else if (response.status === 403) {
                         throw new Error('You are not authorized to delete this transaction');
                     } else {
@@ -333,7 +321,6 @@ function getCSRFToken() {
             document.getElementById('editTransactionForm').style.display = 'none';
         }
         
-        // Edit form submission
         document.getElementById('editForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const form = this;
@@ -372,7 +359,6 @@ function getCSRFToken() {
             });
         });
         
-        // Update event listener for type change
         document.getElementById('editTransactionType').addEventListener('change', filterCategoriesByType);
         document.getElementById('transactionForm').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -386,7 +372,6 @@ function getCSRFToken() {
             try {
                 let receiptUrl = '';
                 
-                // 1. First upload file if exists
                 if (file) {
                     showMessage('Uploading receipt...');
                     
@@ -411,7 +396,6 @@ function getCSRFToken() {
                     document.getElementById('receiptUrl').value = receiptUrl;
                 }
                 
-                // 2. Then submit transaction with receipt URL
                 const transactionData = {
                     amount: formData.get('amount'),
                     date: formData.get('date'),
@@ -450,10 +434,6 @@ function getCSRFToken() {
             }
         });
         
-        // Update your budget form submission
-        
-        
-        // Budgets
         function loadBudgets() {
             fetch('/api/budgets/')
                 .then(response => response.json())
@@ -502,7 +482,7 @@ function getCSRFToken() {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': getCSRFToken()  // Add CSRF token
+                    'X-CSRFToken': getCSRFToken() 
                 },
                 body: JSON.stringify(Object.fromEntries(formData))
             })
@@ -521,8 +501,6 @@ function getCSRFToken() {
             });
         });
         
-        // Categories
-        // Categories - Modified with better error handling
         function loadCategories() {
             fetch('/api/categories/')
                 .then(response => {
@@ -535,21 +513,16 @@ function getCSRFToken() {
                     const transactionSelect = document.getElementById('categorySelect');
                     const budgetSelect = document.getElementById('budgetCategorySelect');
                     
-                    // Clear existing options
                     transactionSelect.innerHTML = '';
                     budgetSelect.innerHTML = '';
                     
-                    // Add default empty option
                     transactionSelect.add(new Option('-- Select Category --', ''));
                     budgetSelect.add(new Option('-- Select Category --', ''));
                     
-                    // Store categories for later filtering
                     window.allCategories = categories;
                     
-                    // Initial filter based on default transaction type
                     filterCategoriesByType();
                     
-                    // Budget form only needs expense categories
                     const expenseCategories = categories.filter(c => c.category_type === 'expense');
                     if (expenseCategories.length > 0) {
                         expenseCategories.forEach(category => {
@@ -563,22 +536,18 @@ function getCSRFToken() {
                 });
         }
         
-        // Filter categories based on selected transaction type
         function filterCategoriesByType() {
             const transactionType = document.querySelector('select[name="transaction_type"]').value;
             const categorySelect = document.getElementById('categorySelect');
             
-            // Clear existing options (keep first empty option)
             while (categorySelect.options.length > 1) {
                 categorySelect.remove(1);
             }
             
-            // Filter categories by selected type
             const filteredCategories = window.allCategories.filter(
                 c => c.category_type === transactionType
             );
             
-            // Add filtered categories
             if (filteredCategories.length > 0) {
                 filteredCategories.forEach(category => {
                     categorySelect.add(new Option(category.name, category.id));
@@ -586,26 +555,25 @@ function getCSRFToken() {
             }
         }
         
-        // Update category options when transaction type changes
         document.querySelector('select[name="transaction_type"]').addEventListener('change', function() {
             filterCategoriesByType();
         });
         
-        // Reports
         function generateReport() {
+            const button = document.getElementById('reportButton');
+            button.disabled = true;
+            button.classList.add('loading');
             fetch('/api/report/')
                 .then(response => response.json())
                 .then(data => {
                     let html = `<h3>Report from ${data.start_date} to ${data.end_date}</h3>`;
                     
-                    // Income by category
                     html += '<h4>Income by Category</h4><ul>';
                     data.income_by_category.forEach(item => {
                         html += `<li>${item.category__name || 'Uncategorized'}: $${item.total.toFixed(2)}</li>`;
                     });
                     html += '</ul>';
                     
-                    // Expenses by category
                     html += '<h4>Expenses by Category</h4><ul>';
                     data.expenses_by_category.forEach(item => {
                         html += `<li>${item.category__name || 'Uncategorized'}: $${item.total.toFixed(2)}</li>`;
@@ -617,17 +585,14 @@ function getCSRFToken() {
                                   <p>${data.ai_report}</p>
                                 </div>`;
                     } 
-                    // Daily totals chart
                     html += '<h4>Daily Totals</h4><canvas id="dailyTotalsChart"></canvas>';
                     
                     document.getElementById('reportResults').innerHTML = html;
                     
-                    // Prepare data for chart
                     const dates = [];
                     const incomeData = [];
                     const expenseData = [];
                     
-                    // Initialize all dates in range
                     const currentDate = new Date(data.start_date);
                     const endDate = new Date(data.end_date);
                     
@@ -639,7 +604,6 @@ function getCSRFToken() {
                         currentDate.setDate(currentDate.getDate() + 1);
                     }
                     
-                    // Fill with actual data
                     data.daily_totals.forEach(item => {
                         const dateStr = item.date;
                         const index = dates.indexOf(dateStr);
@@ -652,7 +616,6 @@ function getCSRFToken() {
                         }
                     });
                     
-                    // Create chart
                     const ctx = document.getElementById('dailyTotalsChart').getContext('2d');
                     new Chart(ctx, {
                         type: 'line',
@@ -686,9 +649,12 @@ function getCSRFToken() {
                     });
                 })
                 .catch(handleApiError);
+                .finally(() => {
+                    button.disabled = false;
+                    button.classList.remove('loading');
+                  });
         }
         
-        // Update category options when transaction type changes
         document.querySelector('select[name="transaction_type"]').addEventListener('change', function() {
             const type = this.value;
             const categorySelect = document.getElementById('categorySelect');

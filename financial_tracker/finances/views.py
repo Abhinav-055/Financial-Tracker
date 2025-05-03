@@ -70,15 +70,6 @@ def get_categories(request):
     serializer = CategorySerializer(categories, many=True)
     return Response(serializer.data)
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def add_category(request):
-    data = request.data.copy()
-    serializer = CategorySerializer(data=data)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=201)
-    return Response(serializer.errors, status=400)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -126,6 +117,7 @@ def update_transaction(request, pk):
     return Response(serializer.errors, status=400)
 
 @api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
 def delete_transaction(request, pk):
     try:
         transaction = Transaction.objects.get(pk=pk, user=request.user)
@@ -318,11 +310,8 @@ def generate_report(request):
             'error': str(e),
             'original_data': report_data
         }, status=500)
+@permission_classes([IsAuthenticated])
 def upload_file(request):
-    """Handle file uploads to ImgBB with print-based debugging"""
-    
-    print("\n=== Starting file upload to ImgBB ===")
-    
     if 'file' not in request.FILES:
         print("ERROR: No file found in request")
         return JsonResponse({"error": "No file provided"}, status=400)
