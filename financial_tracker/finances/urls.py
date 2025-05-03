@@ -9,7 +9,6 @@ urlpatterns = [
     # API Endpoints
     
     path('api/categories/', views.get_categories, name='get_categories'),
-    path('api/categories/add/', views.add_category, name='add_category'),
     path('api/transactions/', views.get_transactions, name='get_transactions'),
     path('api/transactions/add/', views.add_transaction, name='add_transaction'),
     path('api/transactions/<int:pk>/update/', views.update_transaction, name='update_transaction'),
