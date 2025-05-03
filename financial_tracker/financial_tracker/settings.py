@@ -94,7 +94,7 @@ EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD') # App Password from Google
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 OPENAI_API_KEY = env('OPENAI_API_KEY')
 LOGIN_REDIRECT_URL = 'dashboard'
-LOGOUT_REDIRECT_URL = 'login'
+LOGOUT_REDIRECT_URL = '/'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
