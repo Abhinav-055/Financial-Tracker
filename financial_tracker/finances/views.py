@@ -12,6 +12,7 @@ from django.db.models import Sum
 from datetime import date, timedelta
 import json
 import secrets
+from django.db.models import Sum
 import string
 from django.conf import settings
 import requests
@@ -169,10 +170,24 @@ def get_budgets(request):
 def add_budget(request):
     data = request.data.copy()
     data['user'] = request.user.id
+
+    # Parse necessary fields for filtering transactions
+    category_id = data.get('category')
+    start_date = data.get('start_date')
+    end_date = data.get('end_date')
+
+    if category_id and start_date and end_date:
+        spent = Transaction.objects.filter(
+            user=request.user,
+            category_id=category_id,
+            date__range=[start_date, end_date]
+        ).aggregate(total=Sum('amount'))['total'] or 0
+        data['spent'] = spent
     serializer = BudgetSerializer(
-        data=request.data,
-        context={'request': request}  # Pass request for user access
+        data=data,
+        context={'request': request}
     )
+
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data, status=201)
