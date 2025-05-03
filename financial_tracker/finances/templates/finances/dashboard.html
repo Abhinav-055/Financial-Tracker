@@ -648,7 +648,7 @@ function getCSRFToken() {
                         }
                     });
                 })
-                .catch(handleApiError);
+                .catch(handleApiError)
                 .finally(() => {
                     button.disabled = false;
                     button.classList.remove('loading');
